@@ -113,6 +113,26 @@
         <p style="margin: 10px 0 0; font-size: 15px; line-height: 1.55; color: #5A5A52;">Drag to orbit, scroll to zoom, and try different dimensions, colors and layouts.</p>
       </div>
 
+      <div style="background: #FFFFFF; border: 1px solid #E4DFD3; border-radius: 16px; padding: 24px; margin-bottom: 20px;">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
+          <span id="abyld-ai-badge" style="font-size: 11px; font-weight: 700; color: #C4703C; background: #F5EEE0; padding: 4px 10px; border-radius: 999px; letter-spacing: 0.04em;">AI DEMO</span>
+        </div>
+        <div style="font-size: 15px; font-weight: 700; color: #17201C; margin: 10px 0 4px;">Describe your room, or upload a photo</div>
+        <p style="margin: 0 0 14px; font-size: 13px; color: #7A7A70; line-height: 1.5;">AI reads your description and photo to set dimensions and colors automatically. This is a limited public demo, so heavy use may hit a temporary usage cap.</p>
+        <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-start;">
+          <textarea id="abyld-ai-text" rows="2" placeholder="e.g. &quot;A large kitchen with white walls, a navy island and tall ceilings&quot;" style="flex: 1; min-width: 240px; padding: 10px 12px; border: 1px solid #D8CEB4; border-radius: 8px; font-size: 13.5px; font-family: inherit; resize: vertical; color: #17201C;"></textarea>
+          <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-start;">
+            <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: #5A5A52; border: 1px solid #D8CEB4; padding: 9px 12px; border-radius: 8px; cursor: pointer; background: #FAF8F4;">
+              📷 Upload photo
+              <input type="file" id="abyld-ai-photo" accept="image/*" style="display: none;">
+            </label>
+            <img id="abyld-ai-photo-preview" style="display: none; width: 84px; height: 84px; object-fit: cover; border-radius: 8px; border: 1px solid #E4DFD3;">
+          </div>
+          <button id="abyld-ai-generate" style="background: #1C3D5A; color: #FAF8F4; padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; border: none; cursor: pointer; white-space: nowrap;">Generate</button>
+        </div>
+        <div id="abyld-ai-status" style="margin-top: 10px; font-size: 12.5px; color: #4B7A5A; min-height: 16px;"></div>
+      </div>
+
       <div class="abyld-3d-layout" style="background: #FFFFFF; border: 1px solid #E4DFD3; border-radius: 16px; padding: 28px; display: grid; grid-template-columns: 1fr 220px; gap: 24px; align-items: start;">
         <div style="display: flex; flex-direction: column; align-items: center; gap: 16px;">
           <div id="abyld-3d-stage" style="width: 100%; max-width: 640px; height: 380px; border-radius: 10px; overflow: hidden; background: #DCE3E8; cursor: grab;">
@@ -387,6 +407,183 @@
         window.addEventListener('pointerup', function () {
           stage.style.cursor = 'grab';
         });
+
+        // --- AI room demo: Claude (via Netlify function) with a local keyword-matching fallback ---
+        var aiPhotoInput = document.getElementById('abyld-ai-photo');
+        var aiPhotoPreview = document.getElementById('abyld-ai-photo-preview');
+        var aiPhotoDataUrl = null; // full "data:image/...;base64,...." of the currently selected photo
+        if (aiPhotoInput && aiPhotoPreview) {
+          aiPhotoInput.addEventListener('change', function () {
+            var file = aiPhotoInput.files && aiPhotoInput.files[0];
+            if (!file) return;
+            var reader = new FileReader();
+            reader.onload = function (e) {
+              aiPhotoDataUrl = e.target.result;
+              aiPhotoPreview.src = aiPhotoDataUrl;
+              aiPhotoPreview.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+          });
+        }
+
+        function clickSwatchByLabel(containerId, labelSubstring) {
+          var container = document.getElementById(containerId);
+          if (!container) return false;
+          var match = Array.prototype.find.call(container.children, function (btn) {
+            return btn.title && btn.title.toLowerCase().indexOf(labelSubstring) !== -1;
+          });
+          if (match) { match.click(); return true; }
+          return false;
+        }
+
+        var aiGenerateBtn = document.getElementById('abyld-ai-generate');
+        var aiTextInput = document.getElementById('abyld-ai-text');
+        var aiStatus = document.getElementById('abyld-ai-status');
+
+        var wallKeywordMap = { white: 'white', sand: 'sand', tan: 'sand', beige: 'sand', sage: 'sage', green: 'sage', blue: 'slate blue', slate: 'slate blue', charcoal: 'charcoal', dark: 'charcoal', black: 'charcoal' };
+        var accentKeywordMap = { terracotta: 'terracotta', orange: 'terracotta', rust: 'terracotta', navy: 'navy', blue: 'navy', forest: 'forest', green: 'forest', plum: 'plum', purple: 'plum', black: 'black', ivory: 'ivory', cream: 'ivory', white: 'ivory' };
+
+        function parseAndApply(text) {
+          var t = (text || '').toLowerCase();
+          var notes = [];
+
+          // Size
+          var width = parseFloat(dimWidthInput.value) || 12;
+          var depth = parseFloat(dimDepthInput.value) || 12;
+          var height = parseFloat(dimHeightInput.value) || 9;
+          if (/\b(small|compact|tiny|cozy)\b/.test(t)) { width = 8; depth = 8; notes.push('smaller room'); }
+          else if (/\b(large|big|spacious|huge|great room)\b/.test(t)) { width = 18; depth = 18; notes.push('larger room'); }
+          else if (/\b(medium|average|standard)\b/.test(t)) { width = 12; depth = 12; notes.push('medium room'); }
+          if (/\b(tall|high|vaulted|cathedral)\b.*\bceiling/.test(t) || /\bceiling.*\b(tall|high|vaulted)/.test(t)) { height = 12; notes.push('tall ceilings'); }
+          else if (/\blow ceiling/.test(t)) { height = 7; notes.push('low ceiling'); }
+
+          dimWidthInput.value = width;
+          dimDepthInput.value = depth;
+          dimHeightInput.value = height;
+          rebuildFromInputs();
+
+          // Wall color
+          for (var wKey in wallKeywordMap) {
+            if (t.indexOf(wKey) !== -1) {
+              if (clickSwatchByLabel('abyld-swatch-wall', wallKeywordMap[wKey])) notes.push(wallKeywordMap[wKey] + ' walls');
+              break;
+            }
+          }
+
+          // Counter / island color — look for "island" or "counter" near a color word
+          for (var aKey in accentKeywordMap) {
+            if (t.indexOf(aKey) !== -1 && t.indexOf('island') !== -1) {
+              if (clickSwatchByLabel('abyld-swatch-island', accentKeywordMap[aKey])) notes.push(accentKeywordMap[aKey] + ' island');
+              break;
+            }
+          }
+          for (var cKey in accentKeywordMap) {
+            if (t.indexOf(cKey) !== -1 && t.indexOf('counter') !== -1) {
+              if (clickSwatchByLabel('abyld-swatch-counter', accentKeywordMap[cKey])) notes.push(accentKeywordMap[cKey] + ' counter');
+              break;
+            }
+          }
+
+          // Island on/off
+          if (/\bno island\b|\bwithout an? island\b/.test(t)) {
+            islandToggle.checked = false;
+            islandToggleState = false;
+            island.visible = false; islandTop.visible = false;
+            notes.push('no island');
+          } else if (t.indexOf('island') !== -1) {
+            islandToggle.checked = true;
+            islandToggleState = true;
+            island.visible = true; islandTop.visible = true;
+          }
+
+          return notes;
+        }
+
+        // Apply a structured result returned by the AI function to the scene.
+        function applyAiResult(result) {
+          var notes = [];
+          var width = Number(result.width_ft) || 12;
+          var depth = Number(result.depth_ft) || 12;
+          var height = Number(result.height_ft) || 9;
+          dimWidthInput.value = width;
+          dimDepthInput.value = depth;
+          dimHeightInput.value = height;
+          rebuildFromInputs();
+
+          if (result.wall_color && clickSwatchByLabel('abyld-swatch-wall', String(result.wall_color).toLowerCase())) {
+            notes.push(result.wall_color + ' walls');
+          }
+          if (result.counter_color && clickSwatchByLabel('abyld-swatch-counter', String(result.counter_color).toLowerCase())) {
+            notes.push(result.counter_color + ' counters');
+          }
+          if (result.has_island === false) {
+            islandToggle.checked = false;
+            islandToggleState = false;
+            island.visible = false; islandTop.visible = false;
+            notes.push('no island');
+          } else {
+            islandToggle.checked = true;
+            islandToggleState = true;
+            island.visible = true; islandTop.visible = true;
+            if (result.island_color && clickSwatchByLabel('abyld-swatch-island', String(result.island_color).toLowerCase())) {
+              notes.push(result.island_color + ' island');
+            }
+          }
+          return result.notes || (notes.length ? 'Applied: ' + notes.join(', ') + '.' : '');
+        }
+
+        function setAiLoading(isLoading) {
+          if (!aiGenerateBtn) return;
+          aiGenerateBtn.disabled = isLoading;
+          aiGenerateBtn.style.opacity = isLoading ? '0.6' : '1';
+          aiGenerateBtn.textContent = isLoading ? 'Thinking…' : 'Generate';
+        }
+
+        if (aiGenerateBtn) {
+          aiGenerateBtn.addEventListener('click', function () {
+            var text = aiTextInput ? aiTextInput.value.trim() : '';
+            if (!text && !aiPhotoDataUrl) {
+              if (aiStatus) aiStatus.textContent = 'Type a description or upload a photo first.';
+              return;
+            }
+
+            setAiLoading(true);
+            if (aiStatus) aiStatus.textContent = '';
+
+            var payload = { text: text };
+            if (aiPhotoDataUrl) {
+              var commaIdx = aiPhotoDataUrl.indexOf(',');
+              payload.photoMediaType = aiPhotoDataUrl.slice(5, aiPhotoDataUrl.indexOf(';'));
+              payload.photoBase64 = aiPhotoDataUrl.slice(commaIdx + 1);
+            }
+
+            fetch('/api/ai-room', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify(payload)
+            })
+              .then(function (res) {
+                if (!res.ok) return res.json().then(function (e) { throw new Error(e.error || 'AI request failed'); });
+                return res.json();
+              })
+              .then(function (data) {
+                var summary = applyAiResult(data.result);
+                if (aiStatus) aiStatus.textContent = '✨ ' + (summary || 'Applied.');
+              })
+              .catch(function (err) {
+                // Fall back to the free local keyword-matcher so the demo still works
+                // (e.g. before ANTHROPIC_API_KEY is configured, or if a rate limit was hit).
+                var notes = parseAndApply(text);
+                var prefix = 'AI unavailable (' + err.message + ') — used simple keyword matching instead. ';
+                if (aiStatus) {
+                  aiStatus.textContent = prefix + (notes.length ? 'Applied: ' + notes.join(', ') + '.' : 'Try mentioning size, wall color, or "island".');
+                }
+              })
+              .finally(function () {
+                setAiLoading(false);
+              });
+          });
+        }
 
         function animate() {
           requestAnimationFrame(animate);
