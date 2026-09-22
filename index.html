@@ -104,16 +104,33 @@
     </div>
   </div>
 
-  <!-- 3D RENDER TEST (preview only, for review) -->
+  <!-- 3D RENDER PREVIEW -->
   <div style="width: 100%; padding: 0 32px 96px;">
     <div style="max-width: 1160px; margin: 0 auto;">
-      <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-        <span style="font-size: 11px; font-weight: 700; color: #C4703C; background: #F5EEE0; padding: 4px 10px; border-radius: 999px; letter-spacing: 0.04em;">TEST — NOT ON LIVE SITE</span>
-      </div>
       <div style="max-width: 560px; margin-bottom: 28px;">
         <span style="font-size: 13px; font-weight: 700; color: #C4703C; letter-spacing: 0.04em;">NEW: 3D RENDERS</span>
         <h2 style="margin: 10px 0 0; font-size: 32px; font-weight: 700; letter-spacing: -0.015em; color: #17201C;">A quick look at your space in 3D</h2>
-        <p style="margin: 10px 0 0; font-size: 15px; line-height: 1.55; color: #5A5A52;">Drag to orbit, scroll to zoom. Real-time 3D render (Three.js) — simplified room geometry for this test.</p>
+        <p style="margin: 10px 0 0; font-size: 15px; line-height: 1.55; color: #5A5A52;">Drag to orbit, scroll to zoom, and try different dimensions, colors and layouts.</p>
+      </div>
+
+      <div style="background: #FFFFFF; border: 1px solid #E4DFD3; border-radius: 16px; padding: 24px; margin-bottom: 20px;">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
+          <span style="font-size: 11px; font-weight: 700; color: #C4703C; background: #F5EEE0; padding: 4px 10px; border-radius: 999px; letter-spacing: 0.04em;">DEMO — SIMPLIFIED, NO REAL AI YET</span>
+        </div>
+        <div style="font-size: 15px; font-weight: 700; color: #17201C; margin: 10px 0 4px;">Describe your room, or upload a photo</div>
+        <p style="margin: 0 0 14px; font-size: 13px; color: #7A7A70; line-height: 1.5;">This demo matches simple keywords in your text to set dimensions and colors. A photo you upload is only previewed here — it isn't analyzed yet. (A future version would use a real AI model for both.)</p>
+        <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-start;">
+          <textarea id="abyld-ai-text" rows="2" placeholder="e.g. &quot;A large kitchen with white walls, a navy island and tall ceilings&quot;" style="flex: 1; min-width: 240px; padding: 10px 12px; border: 1px solid #D8CEB4; border-radius: 8px; font-size: 13.5px; font-family: inherit; resize: vertical; color: #17201C;"></textarea>
+          <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-start;">
+            <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: #5A5A52; border: 1px solid #D8CEB4; padding: 9px 12px; border-radius: 8px; cursor: pointer; background: #FAF8F4;">
+              📷 Upload photo
+              <input type="file" id="abyld-ai-photo" accept="image/*" style="display: none;">
+            </label>
+            <img id="abyld-ai-photo-preview" style="display: none; width: 84px; height: 84px; object-fit: cover; border-radius: 8px; border: 1px solid #E4DFD3;">
+          </div>
+          <button id="abyld-ai-generate" style="background: #1C3D5A; color: #FAF8F4; padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; border: none; cursor: pointer; white-space: nowrap;">Generate</button>
+        </div>
+        <div id="abyld-ai-status" style="margin-top: 10px; font-size: 12.5px; color: #4B7A5A; min-height: 16px;"></div>
       </div>
 
       <div class="abyld-3d-layout" style="background: #FFFFFF; border: 1px solid #E4DFD3; border-radius: 16px; padding: 28px; display: grid; grid-template-columns: 1fr 220px; gap: 24px; align-items: start;">
@@ -390,6 +407,106 @@
         window.addEventListener('pointerup', function () {
           stage.style.cursor = 'grab';
         });
+
+        // --- Simplified "AI" demo: keyword-matched text parsing (no real AI) ---
+        var aiPhotoInput = document.getElementById('abyld-ai-photo');
+        var aiPhotoPreview = document.getElementById('abyld-ai-photo-preview');
+        if (aiPhotoInput && aiPhotoPreview) {
+          aiPhotoInput.addEventListener('change', function () {
+            var file = aiPhotoInput.files && aiPhotoInput.files[0];
+            if (!file) return;
+            var reader = new FileReader();
+            reader.onload = function (e) {
+              aiPhotoPreview.src = e.target.result;
+              aiPhotoPreview.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+          });
+        }
+
+        function clickSwatchByLabel(containerId, labelSubstring) {
+          var container = document.getElementById(containerId);
+          if (!container) return false;
+          var match = Array.prototype.find.call(container.children, function (btn) {
+            return btn.title && btn.title.toLowerCase().indexOf(labelSubstring) !== -1;
+          });
+          if (match) { match.click(); return true; }
+          return false;
+        }
+
+        var aiGenerateBtn = document.getElementById('abyld-ai-generate');
+        var aiTextInput = document.getElementById('abyld-ai-text');
+        var aiStatus = document.getElementById('abyld-ai-status');
+
+        var wallKeywordMap = { white: 'white', sand: 'sand', tan: 'sand', beige: 'sand', sage: 'sage', green: 'sage', blue: 'slate blue', slate: 'slate blue', charcoal: 'charcoal', dark: 'charcoal', black: 'charcoal' };
+        var accentKeywordMap = { terracotta: 'terracotta', orange: 'terracotta', rust: 'terracotta', navy: 'navy', blue: 'navy', forest: 'forest', green: 'forest', plum: 'plum', purple: 'plum', black: 'black', ivory: 'ivory', cream: 'ivory', white: 'ivory' };
+
+        function parseAndApply(text) {
+          var t = (text || '').toLowerCase();
+          var notes = [];
+
+          // Size
+          var width = parseFloat(dimWidthInput.value) || 12;
+          var depth = parseFloat(dimDepthInput.value) || 12;
+          var height = parseFloat(dimHeightInput.value) || 9;
+          if (/\b(small|compact|tiny|cozy)\b/.test(t)) { width = 8; depth = 8; notes.push('smaller room'); }
+          else if (/\b(large|big|spacious|huge|great room)\b/.test(t)) { width = 18; depth = 18; notes.push('larger room'); }
+          else if (/\b(medium|average|standard)\b/.test(t)) { width = 12; depth = 12; notes.push('medium room'); }
+          if (/\b(tall|high|vaulted|cathedral)\b.*\bceiling/.test(t) || /\bceiling.*\b(tall|high|vaulted)/.test(t)) { height = 12; notes.push('tall ceilings'); }
+          else if (/\blow ceiling/.test(t)) { height = 7; notes.push('low ceiling'); }
+
+          dimWidthInput.value = width;
+          dimDepthInput.value = depth;
+          dimHeightInput.value = height;
+          rebuildFromInputs();
+
+          // Wall color
+          for (var wKey in wallKeywordMap) {
+            if (t.indexOf(wKey) !== -1) {
+              if (clickSwatchByLabel('abyld-swatch-wall', wallKeywordMap[wKey])) notes.push(wallKeywordMap[wKey] + ' walls');
+              break;
+            }
+          }
+
+          // Counter / island color — look for "island" or "counter" near a color word
+          for (var aKey in accentKeywordMap) {
+            if (t.indexOf(aKey) !== -1 && t.indexOf('island') !== -1) {
+              if (clickSwatchByLabel('abyld-swatch-island', accentKeywordMap[aKey])) notes.push(accentKeywordMap[aKey] + ' island');
+              break;
+            }
+          }
+          for (var cKey in accentKeywordMap) {
+            if (t.indexOf(cKey) !== -1 && t.indexOf('counter') !== -1) {
+              if (clickSwatchByLabel('abyld-swatch-counter', accentKeywordMap[cKey])) notes.push(accentKeywordMap[cKey] + ' counter');
+              break;
+            }
+          }
+
+          // Island on/off
+          if (/\bno island\b|\bwithout an? island\b/.test(t)) {
+            islandToggle.checked = false;
+            islandToggleState = false;
+            island.visible = false; islandTop.visible = false;
+            notes.push('no island');
+          } else if (t.indexOf('island') !== -1) {
+            islandToggle.checked = true;
+            islandToggleState = true;
+            island.visible = true; islandTop.visible = true;
+          }
+
+          return notes;
+        }
+
+        if (aiGenerateBtn) {
+          aiGenerateBtn.addEventListener('click', function () {
+            var notes = parseAndApply(aiTextInput ? aiTextInput.value : '');
+            if (aiStatus) {
+              aiStatus.textContent = notes.length
+                ? 'Applied: ' + notes.join(', ') + '.'
+                : 'Didn\'t catch specific details — try mentioning size, wall color, or "island".';
+            }
+          });
+        }
 
         function animate() {
           requestAnimationFrame(animate);
