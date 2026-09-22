@@ -104,6 +104,86 @@
     </div>
   </div>
 
+  <!-- 3D RENDER TEST (preview only, for review) -->
+  <div style="width: 100%; padding: 0 32px 96px;">
+    <div style="max-width: 1160px; margin: 0 auto;">
+      <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+        <span style="font-size: 11px; font-weight: 700; color: #C4703C; background: #F5EEE0; padding: 4px 10px; border-radius: 999px; letter-spacing: 0.04em;">TEST — NOT ON LIVE SITE</span>
+      </div>
+      <div style="max-width: 560px; margin-bottom: 28px;">
+        <span style="font-size: 13px; font-weight: 700; color: #C4703C; letter-spacing: 0.04em;">NEW: 3D RENDERS</span>
+        <h2 style="margin: 10px 0 0; font-size: 32px; font-weight: 700; letter-spacing: -0.015em; color: #17201C;">A quick look at your space in 3D</h2>
+        <p style="margin: 10px 0 0; font-size: 15px; line-height: 1.55; color: #5A5A52;">Drag to rotate. This is a lightweight preview of the room-render concept — simplified for this test.</p>
+      </div>
+
+      <div style="background: #FFFFFF; border: 1px solid #E4DFD3; border-radius: 16px; padding: 28px; display: flex; flex-direction: column; align-items: center; gap: 16px;">
+        <div id="abyld-3d-stage" style="width: 100%; max-width: 520px; height: 320px; perspective: 900px; cursor: grab; touch-action: none;">
+          <div id="abyld-3d-room" style="width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transform: rotateX(-24deg) rotateY(-32deg);">
+            <!-- floor -->
+            <div style="position: absolute; width: 260px; height: 260px; left: 50%; top: 50%; margin: -130px 0 0 -130px; background: #F3EFE4; border: 2px solid #1A1A18; transform: rotateX(90deg) translateZ(90px);"></div>
+            <!-- back wall -->
+            <div style="position: absolute; width: 260px; height: 160px; left: 50%; top: 50%; margin: -210px 0 0 -130px; background: #FFFFFF; border: 2px solid #1A1A18; transform: translateZ(-90px);"></div>
+            <!-- left wall -->
+            <div style="position: absolute; width: 260px; height: 160px; left: 50%; top: 50%; margin: -210px 0 0 -130px; background: #EFE9DC; border: 2px solid #1A1A18; transform-origin: left; transform: rotateY(90deg) translateZ(0px) translateX(0px);"></div>
+            <!-- counter block -->
+            <div style="position: absolute; width: 90px; height: 40px; left: 50%; top: 50%; margin: 6px 0 0 -110px; background: #C4703C; border: 2px solid #1A1A18; transform: translateZ(70px) rotateX(90deg) translateY(-20px);"></div>
+            <!-- island block -->
+            <div style="position: absolute; width: 70px; height: 70px; left: 50%; top: 50%; margin: -35px 0 0 -35px; background: #1C3D5A; border: 2px solid #1A1A18; transform: translateZ(20px);"></div>
+          </div>
+        </div>
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <span style="font-size: 12px; color: #7A7A70;">Auto-rotating — click and drag to look around</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    (function () {
+      var stage = document.getElementById('abyld-3d-stage');
+      var room = document.getElementById('abyld-3d-room');
+      if (!stage || !room) return;
+      var rotY = -32, rotX = -24;
+      var autoRotate = true;
+      var dragging = false, lastX = 0, lastY = 0;
+
+      function apply() {
+        room.style.transform = 'rotateX(' + rotX + 'deg) rotateY(' + rotY + 'deg)';
+      }
+      function tick() {
+        if (autoRotate && !dragging) {
+          rotY += 0.25;
+          apply();
+        }
+        requestAnimationFrame(tick);
+      }
+      function start(x, y) {
+        dragging = true; autoRotate = false; lastX = x; lastY = y;
+        stage.style.cursor = 'grabbing';
+      }
+      function move(x, y) {
+        if (!dragging) return;
+        rotY += (x - lastX) * 0.4;
+        rotX -= (y - lastY) * 0.3;
+        rotX = Math.max(-80, Math.min(10, rotX));
+        lastX = x; lastY = y;
+        apply();
+      }
+      function end() {
+        dragging = false;
+        stage.style.cursor = 'grab';
+      }
+
+      stage.addEventListener('mousedown', function (e) { start(e.clientX, e.clientY); });
+      window.addEventListener('mousemove', function (e) { move(e.clientX, e.clientY); });
+      window.addEventListener('mouseup', end);
+      stage.addEventListener('touchstart', function (e) { var t = e.touches[0]; start(t.clientX, t.clientY); }, { passive: true });
+      stage.addEventListener('touchmove', function (e) { var t = e.touches[0]; move(t.clientX, t.clientY); }, { passive: true });
+      stage.addEventListener('touchend', end);
+
+      requestAnimationFrame(tick);
+    })();
+  </script>
+
   <!-- LOGOS / TRUST STRIP -->
   <div style="width: 100%; border-top: 1px solid #E4DFD3; border-bottom: 1px solid #E4DFD3; background: #F3EFE4;">
     <div style="max-width: 1160px; margin: 0 auto; padding: 22px 32px; display: flex; align-items: center; justify-content: center; gap: 48px; flex-wrap: wrap;">
