@@ -2,8 +2,8 @@ import { getStore } from "@netlify/blobs";
 
 // ---- Config (all overridable via Netlify environment variables) ----
 // OpenRouter's API is OpenAI-compatible: https://openrouter.ai
-const MODEL_TEXT = process.env.OPENROUTER_MODEL_TEXT || "meta-llama/llama-3.3-70b-instruct:free";
-const MODEL_VISION = process.env.OPENROUTER_MODEL_VISION || "meta-llama/llama-3.2-11b-vision-instruct:free";
+const MODEL_TEXT = process.env.OPENROUTER_MODEL_TEXT || "qwen/qwen3.8-27b:free";
+const MODEL_VISION = process.env.OPENROUTER_MODEL_VISION || "qwen/qwen3.8-27b:free";
 const MAX_TEXT_LEN = 600;
 const MAX_IMAGE_BASE64_BYTES = 4 * 1024 * 1024; // ~4MB of base64 (~3MB actual image)
 const PER_IP_HOURLY_LIMIT = parseInt(process.env.AI_ROOM_IP_HOURLY_LIMIT || "5", 10);
